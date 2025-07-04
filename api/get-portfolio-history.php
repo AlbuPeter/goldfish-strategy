@@ -17,29 +17,20 @@ while ($row = $result->fetch_assoc()) {
 }
 
 // 2. Lekérjük a portfólió coinokat
-$portfolioRes = $conn->query("SELECT coin, amount, avg_price FROM portfolio");
+$portfolioRes = $conn->query("SELECT coin, amount FROM portfolio");
 $coins = [];
-$coinsInvested = 0;
-$usdcAmount = 0;
 
-// Lekérjük manuálisan hozzáadott USDC-t a tranzakciós táblából (csak "add" típus)
-$usdcAddResult = $conn->query("SELECT SUM(amount) AS added_usdc FROM transactions WHERE coin = 'usdc' AND type = 'usdc_add'");
-
-$usdcAmount = (float)($usdcAddResult->fetch_assoc()['added_usdc'] ?? 0);
-
-// Coin befektetések számítása
 while ($row = $portfolioRes->fetch_assoc()) {
     $coin = strtolower($row['coin']);
     $coins[$coin] = (float)$row['amount'];
-
-    if ($coin !== 'usdc') {
-        $coinsInvested += (float)$row['amount'] * (float)$row['avg_price'];
-    }
 }
-$totalInvested = round($coinsInvested + $usdcAmount, 2);
 
+// 3. Lekérjük a manuálisan hozzáadott USDC-t (csak usdc_add típus)
+$usdcAddResult = $conn->query("SELECT SUM(amount) AS added_usdc FROM transactions WHERE coin = 'usdc' AND type = 'usdc_add'");
+$usdcAmount = (float)($usdcAddResult->fetch_assoc()['added_usdc'] ?? 0);
+$totalInvested = round($usdcAmount, 2);
 
-// 3. CoinGecko ID mapping
+// 4. CoinGecko ID mapping
 $coinGeckoIds = [
     'btc' => 'bitcoin',
     'bitcoin' => 'bitcoin',
@@ -52,7 +43,7 @@ $coinGeckoIds = [
     'usd-coin' => 'usd-coin'
 ];
 
-// 4. Lekérjük az árakat
+// 5. Lekérjük az árakat
 $response = file_get_contents("http://localhost/goldfish-strategy/api/get-prices.php");
 if ($response === FALSE) {
     error_log("❌ Nem sikerült lekérni az árfolyamokat.");
@@ -61,7 +52,7 @@ if ($response === FALSE) {
 $prices = json_decode($response, true);
 file_put_contents("debug_prices.json", json_encode($prices, JSON_PRETTY_PRINT));
 
-// 5. Kiszámoljuk az aktuális értéket
+// 6. Kiszámoljuk az aktuális értéket
 $total = 0;
 foreach ($coins as $coin => $amount) {
     $cgId = $coinGeckoIds[$coin] ?? null;
@@ -74,18 +65,16 @@ foreach ($coins as $coin => $amount) {
 }
 $total = round($total, 2);
 
-// 6. Ha túl alacsony, nem írunk be új értéket
+// 7. Ha túl alacsony, nem írunk be új értéket
 if ($total < 1) {
     error_log("❌ Összérték túl alacsony vagy 0: $total");
-    
-    // ✅ Visszatérünk üres tömbbel, hogy a frontend ne hibázzon
+
     header('Content-Type: application/json');
     echo json_encode([]);
     exit;
 }
 
-
-// 7. Új rekord mentése, ha változott
+// 8. Új rekord mentése, ha változott
 $lastRecorded = end($data);
 if (!$lastRecorded || abs($lastRecorded['total_value'] - $total) > 0.01) {
     $stmt = $conn->prepare("INSERT INTO portfolio_history (recorded_at, total_value, invested) VALUES (?, ?, ?)");
@@ -100,13 +89,13 @@ if (!$lastRecorded || abs($lastRecorded['total_value'] - $total) > 0.01) {
     ];
 }
 
-// 🔁 8. Hiányzó `invested` mezők frissítése a JSON válaszban
+// 9. Hiányzó `invested` mezők frissítése, ha valahol null lenne
 foreach ($data as &$row) {
     if (!isset($row['invested']) || $row['invested'] < 1) {
         $row['invested'] = $totalInvested;
     }
 }
 
-// 9. Visszaküldjük JSON formában
+// 10. JSON visszaadás
 header('Content-Type: application/json');
 echo json_encode($data);
