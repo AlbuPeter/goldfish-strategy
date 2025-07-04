@@ -20,11 +20,11 @@ $coinMap = [
     'usdc' => 'usd-coin'
 ];
 
-// Értékek inicializálása
 $currentValue = 0;
-$invested = 0;
+$coinInvested = 0; // csak coin vásárlás
+$usdcAdded = 0;
 
-// Lekérdezzük az aktív coinokat
+// 1. Coin vásárlások (kivéve USDC)
 $res = $conn->query("SELECT coin, amount, avg_price FROM portfolio WHERE amount > 0");
 while ($row = $res->fetch_assoc()) {
     $short = strtolower($row['coin']);
@@ -34,18 +34,27 @@ while ($row = $res->fetch_assoc()) {
     if (!$price) continue;
 
     $value = $row['amount'] * $price;
-    $cost = $row['amount'] * $row['avg_price'];
-
     $currentValue += $value;
-    $invested += $cost;
+
+    // Coin vásárlás befektetési érték számítása (USDC kivételével)
+    if ($short !== 'usdc') {
+        $coinInvested += $row['amount'] * $row['avg_price'];
+    }
 }
 
-$profit = $currentValue - $invested;
-$profitPercent = $invested > 0 ? round(($profit / $invested) * 100, 2) : 0;
+// 2. Manuálisan hozzáadott USDC lekérdezése
+$usdcQuery = $conn->query("SELECT SUM(amount) AS added FROM transactions WHERE coin = 'USDC' AND type = 'usdc_add'");
+$usdcAdded = (float)($usdcQuery->fetch_assoc()['added'] ?? 0);
+
+// 3. Összes befektetett összeg
+$totalInvested = $coinInvested + $usdcAdded;
+
+$profit = $currentValue - $totalInvested;
+$profitPercent = $totalInvested > 0 ? round(($profit / $totalInvested) * 100, 2) : 0;
 
 echo json_encode([
     "current_value" => round($currentValue, 2),
-    "invested" => round($invested, 2),
+    "invested" => round($totalInvested, 2),
     "profit" => round($profit, 2),
     "profit_percent" => $profitPercent
 ]);
