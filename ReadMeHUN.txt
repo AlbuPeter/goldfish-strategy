@@ -62,4 +62,5 @@ A nyelvváltás JavaScript és data-translate attribútumok segítségével műk
 🚀 További fejlesztési lehetőségek
 - Több felhasználós rendszer (minden felhasználónak saját portfólió)
 - Emailes értesítések a portfólió változásairól
+- Több token
 - Automatizált árfrissítés cron job segítségével
