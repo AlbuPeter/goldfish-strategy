@@ -22,17 +22,22 @@ $coins = [];
 $coinsInvested = 0;
 $usdcAmount = 0;
 
+// Lekérjük manuálisan hozzáadott USDC-t a tranzakciós táblából (csak "add" típus)
+$usdcAddResult = $conn->query("SELECT SUM(amount) AS added_usdc FROM transactions WHERE coin = 'usdc' AND type = 'usdc_add'");
+
+$usdcAmount = (float)($usdcAddResult->fetch_assoc()['added_usdc'] ?? 0);
+
+// Coin befektetések számítása
 while ($row = $portfolioRes->fetch_assoc()) {
     $coin = strtolower($row['coin']);
     $coins[$coin] = (float)$row['amount'];
 
-    if ($coin === 'usdc') {
-        $usdcAmount = (float)$row['amount'];
-    } else {
+    if ($coin !== 'usdc') {
         $coinsInvested += (float)$row['amount'] * (float)$row['avg_price'];
     }
 }
 $totalInvested = round($coinsInvested + $usdcAmount, 2);
+
 
 // 3. CoinGecko ID mapping
 $coinGeckoIds = [
@@ -72,8 +77,13 @@ $total = round($total, 2);
 // 6. Ha túl alacsony, nem írunk be új értéket
 if ($total < 1) {
     error_log("❌ Összérték túl alacsony vagy 0: $total");
-    die(json_encode(['error' => 'A kiszámolt összérték érvénytelen (0 vagy túl alacsony).']));
+    
+    // ✅ Visszatérünk üres tömbbel, hogy a frontend ne hibázzon
+    header('Content-Type: application/json');
+    echo json_encode([]);
+    exit;
 }
+
 
 // 7. Új rekord mentése, ha változott
 $lastRecorded = end($data);
