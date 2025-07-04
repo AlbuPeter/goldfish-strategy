@@ -62,4 +62,5 @@ Multilingual support is implemented using data-translate attributes and JavaScri
 🚀 Future Improvements
 - Multi-user support (each user can have their own portfolio)
 - Email notifications about portfolio changes
+- More Coins
 - Automated price updates via cron job
