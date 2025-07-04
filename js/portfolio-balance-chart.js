@@ -33,6 +33,10 @@ async function loadChart() {
   let data;
   try {
     data = JSON.parse(text);
+    if (!Array.isArray(data)) {
+      console.error("⚠️ A kapott válasz nem tömb:", data);
+      return; // Megállítja a grafikont
+    }
   } catch (err) {
     console.error("❌ Nem érvényes JSON válasz:", text);
     throw err;
